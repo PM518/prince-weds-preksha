@@ -338,7 +338,9 @@
 (() => {
   const root = document.documentElement;
   const images = Array.from(document.images);
-  const media = Array.from(document.querySelectorAll('video, audio'));
+  // Only wait for the hero video. Audio can be blocked from loading/playing
+  // until a visitor interacts with the page, so it must not hold the screen blank.
+  const media = Array.from(document.querySelectorAll('video'));
 
   const waitForImage = (img) => {
     if (img.complete && img.naturalWidth > 0) {
@@ -372,14 +374,23 @@
     });
   };
 
-  Promise.all([
-    ...images.map(waitForImage),
-    ...media.map(waitForMedia)
-  ]).then(() => {
+  let revealed = false;
+  const revealPage = () => {
+    if (revealed) return;
+    revealed = true;
     requestAnimationFrame(() => {
       root.classList.remove('page-loading');
     });
-  });
+  };
+
+  Promise.all([
+    ...images.map(waitForImage),
+    ...media.map(waitForMedia)
+  ]).then(revealPage);
+
+  // Safety fallback: if a media request stalls, show the page rather than
+  // leaving visitors on a blank screen indefinitely.
+  window.setTimeout(revealPage, 12000);
 })();
 </script>
 
