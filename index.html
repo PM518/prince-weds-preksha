@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="page-loading">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -157,6 +157,15 @@
   .music-toggle .music-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--champagne); box-shadow: 0 0 10px rgba(232,203,136,.8); }
   .music-toggle.is-playing .music-dot { animation: gold-glow 1.5s infinite; }
   @media (max-width: 600px) { .music-toggle { right: 14px; bottom: 14px; padding: 10px 12px; font-size: 11px; } }
+  /* Keep the page completely blank until its visual assets are ready. */
+  html.page-loading,
+  html.page-loading body {
+    background: #fff !important;
+  }
+  html.page-loading body > * {
+    visibility: hidden !important;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -322,5 +331,57 @@
   });
 })();
 </script>
+
+
+<!-- Reveal the invitation only after its images and media are ready to display. -->
+<script>
+(() => {
+  const root = document.documentElement;
+  const images = Array.from(document.images);
+  const media = Array.from(document.querySelectorAll('video, audio'));
+
+  const waitForImage = (img) => {
+    if (img.complete && img.naturalWidth > 0) {
+      return typeof img.decode === 'function' ? img.decode().catch(() => {}) : Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const finish = () => {
+        if (typeof img.decode === 'function' && img.naturalWidth > 0) {
+          img.decode().catch(() => {}).finally(resolve);
+        } else {
+          resolve();
+        }
+      };
+      img.addEventListener('load', finish, { once: true });
+      img.addEventListener('error', resolve, { once: true });
+    });
+  };
+
+  const waitForMedia = (element) => {
+    // Video/audio are considered ready when the browser has enough data to begin playback.
+    const readyState = element.tagName === 'VIDEO' ? 3 : 3; // HAVE_FUTURE_DATA
+    if (element.readyState >= readyState || element.error) return Promise.resolve();
+    return new Promise((resolve) => {
+      const finish = () => {
+        element.removeEventListener('canplay', finish);
+        element.removeEventListener('error', finish);
+        resolve();
+      };
+      element.addEventListener('canplay', finish, { once: true });
+      element.addEventListener('error', finish, { once: true });
+    });
+  };
+
+  Promise.all([
+    ...images.map(waitForImage),
+    ...media.map(waitForMedia)
+  ]).then(() => {
+    requestAnimationFrame(() => {
+      root.classList.remove('page-loading');
+    });
+  });
+})();
+</script>
+
 </body>
 </html>
